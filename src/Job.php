@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Enqueue\LaravelQueue;
 
 use Illuminate\Container\Container;
@@ -35,13 +37,13 @@ class Job extends BaseJob implements JobContract
      */
     public function __construct(Container $container, PsrContext $psrContext, PsrConsumer $psrConsumer, PsrMessage $psrMessage, $connectionName)
     {
-        $this->container = $container;
-        $this->psrContext = $psrContext;
-        $this->psrConsumer = $psrConsumer;
-        $this->psrMessage = $psrMessage;
+        $this->container      = $container;
+        $this->psrContext     = $psrContext;
+        $this->psrConsumer    = $psrConsumer;
+        $this->psrMessage     = $psrMessage;
         $this->connectionName = $connectionName;
     }
-    
+
     public function getJobId()
     {
         return $this->psrMessage->getMessageId();
@@ -62,14 +64,14 @@ class Job extends BaseJob implements JobContract
      */
     public function release($delay = 0)
     {
-        if ($delay) {
-            throw new \LogicException('To be implemented');
-        }
+        parent::release($delay);
 
         $requeueMessage = clone $this->psrMessage;
         $requeueMessage->setProperty('x-attempts', $this->attempts() + 1);
 
-        $this->psrContext->createProducer()->send($this->psrConsumer->getQueue(), $requeueMessage);
+        $this->psrContext->createProducer()
+            ->setDeliveryDelay($this->secondsUntil($delay) * 1000)
+            ->send($this->psrConsumer->getQueue(), $requeueMessage);
 
         $this->psrConsumer->acknowledge($this->psrMessage);
     }
